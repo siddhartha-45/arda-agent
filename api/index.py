@@ -38,6 +38,8 @@ app = FastAPI(
     version="1.0.0",
 )
 
+API_BUILD = "search-fallback-2026-05-19"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -166,6 +168,7 @@ async def root() -> Dict[str, str]:
         "name": "ARDA Research Agent API",
         "status": "online",
         "version": "1.0.0",
+        "build": API_BUILD,
         "deployment": "Vercel Serverless (Lightweight)",
     }
 
@@ -178,6 +181,9 @@ async def health() -> Dict[str, str]:
 @app.get("/api/models")
 async def get_models() -> Dict[str, Dict[str, Any]]:
     return {
+        "api": {
+            "build": API_BUILD,
+        },
         "llm": {
             "provider": "Groq",
             "model": os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
