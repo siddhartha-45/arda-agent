@@ -6,12 +6,9 @@ Uses Groq LLM and DuckDuckGo search only
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from mangum import Mangum
-from pathlib import Path
 
 # Import lightweight dependencies
 try:
@@ -108,23 +105,16 @@ Analysis:"""
     except Exception as e:
         return f"Analysis unavailable: {str(e)}"
 
-# Root endpoint - serve web UI
+# Root endpoint - serve web UI info
 @app.get("/")
 async def root():
-    """Serve the web UI"""
-    try:
-        public_dir = Path(__file__).parent.parent / "public"
-        index_file = public_dir / "index.html"
-        if index_file.exists():
-            return FileResponse(index_file, media_type="text/html")
-    except:
-        pass
-    # Fallback to JSON if HTML not found
+    """Root endpoint - redirects to web UI"""
     return {
         "name": "ARDA Research Agent API",
         "status": "online",
         "version": "1.0.0",
-        "deployment": "Vercel Serverless (Lightweight)"
+        "deployment": "Vercel Serverless (Lightweight)",
+        "note": "Open https://arda-research-agent.vercel.app/ in browser for web UI"
     }
 
 @app.get("/health")
