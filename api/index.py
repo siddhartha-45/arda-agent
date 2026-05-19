@@ -38,7 +38,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-API_BUILD = "search-fallback-2026-05-19"
+API_BUILD = "structured-analysis-2026-05-19"
 
 app.add_middleware(
     CORSMiddleware,
@@ -140,10 +140,26 @@ Research query: {query}
 Search results:
 {context}
 
-Write a short research brief with:
-1. Key findings
-2. Important caveats
-3. Practical next steps
+Write the answer in this exact structured format:
+
+## Summary
+- 2 to 3 bullets explaining what the search results indicate.
+
+## Companies Mentioned
+| Company or list source | Why it matters | Source |
+| --- | --- | --- |
+
+## Caveats
+- 2 to 4 bullets about freshness, missing data, market risk, or source limits.
+
+## Next Steps
+- 3 practical bullets the user can take next.
+
+Rules:
+- Do not write placeholders like "[insert company names]".
+- If the search snippets do not include specific company names, say that the available snippets point to ranked gainers pages rather than naming companies directly.
+- Do not invent stock tickers, prices, returns, or company names that are not present in the search results.
+- Keep it concise and skimmable.
 
 Ground the brief only in the search results above."""
 
