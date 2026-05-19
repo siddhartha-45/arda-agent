@@ -3,8 +3,6 @@ duckduckgo-search>=3.8.0
 fastapi>=0.104.0
 pydantic>=2.0.0
 python-dotenv>=1.0.0
-sentence-transformers>=2.2.0
-faiss-cpu>=1.7.4
-jaseci
 requests>=2.31.0
 mangum>=0.17.0
+

@@ -1,20 +1,26 @@
 """
-Vercel Serverless API for ARDA - Autonomous Research & Decision Agent
-Optimized for serverless deployment (minimal imports on startup)
+Lightweight ARDA API for Vercel - no heavy ML dependencies
+Uses Groq LLM and DuckDuckGo search only
 """
 
 import os
-import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from mangum import Mangum
+
+# Import lightweight dependencies
+try:
+    from groq import Groq
+    from duckduckgo_search import DDGS
+except ImportError as e:
+    raise RuntimeError(f"Missing required package: {e}")
 
 # Initialize FastAPI app
 app = FastAPI(
     title="ARDA Research Agent API",
-    description="Autonomous Research & Decision Agent",
+    description="Lightweight Autonomous Research & Decision Agent",
     version="1.0.0"
 )
 
@@ -32,45 +38,74 @@ class ResearchQuery(BaseModel):
     query: str
     depth: str = "standard"
 
+class SearchResult(BaseModel):
+    title: str
+    link: str
+    snippet: str
+
 class ResearchResponse(BaseModel):
-    session_id: str
     query: str
     status: str
-    findings: Dict[str, Any]
-    recommendations: Optional[str] = None
+    search_results: List[SearchResult]
+    analysis: Optional[str] = None
 
-# Lazy-load agent only when needed
-_agent = None
-_import_error = None
+# Initialize clients
+def get_groq_client():
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY not configured")
+    return Groq(api_key=api_key)
 
-def get_agent():
-    """Lazy-load ARDA agent - only import when first API call is made"""
-    global _agent, _import_error
+def search_web(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
+    """Search the web using DuckDuckGo"""
+    try:
+        results = []
+        ddgs = DDGS()
+        for result in ddgs.text(query, max_results=num_results):
+            results.append({
+                "title": result.get("title", ""),
+                "link": result.get("link", ""),
+                "snippet": result.get("body", "")[:500]
+            })
+        return results
+    except Exception as e:
+        return []
+
+def analyze_search_results(query: str, results: List[Dict[str, Any]]) -> str:
+    """Use Groq to analyze search results"""
+    if not results:
+        return "No search results found."
     
-    if _import_error:
-        raise HTTPException(
-            status_code=503, 
-            detail=f"Agent initialization failed: {_import_error}"
+    try:
+        client = get_groq_client()
+        
+        # Format search results for LLM
+        formatted_results = "\n".join([
+            f"- {r['title']}: {r['snippet']}"
+            for r in results[:3]
+        ])
+        
+        prompt = f"""Based on the following search results, provide a brief analysis (2-3 sentences) for the query: "{query}"
+
+Search Results:
+{formatted_results}
+
+Analysis:"""
+        
+        message = client.messages.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=500,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
+        
+        return message.content[0].text
     
-    if _agent is None:
-        try:
-            import sys
-            from pathlib import Path
-            # Add parent directory to path for imports
-            sys.path.insert(0, str(Path(__file__).parent.parent))
-            from main import ARDAAgent
-            _agent = ARDAAgent()
-        except Exception as e:
-            _import_error = str(e)
-            raise HTTPException(
-                status_code=503,
-                detail=f"Failed to initialize agent: {str(e)}"
-            )
-    return _agent
+    except Exception as e:
+        return f"Analysis unavailable: {str(e)}"
 
-
-# Health endpoints (no dependencies)
+# Health endpoints
 @app.get("/")
 async def root():
     """Health check endpoint"""
@@ -78,7 +113,7 @@ async def root():
         "name": "ARDA Research Agent API",
         "status": "online",
         "version": "1.0.0",
-        "deployment": "Vercel Serverless"
+        "deployment": "Vercel Serverless (Lightweight)"
     }
 
 @app.get("/health")
@@ -86,7 +121,7 @@ async def health():
     """Health check"""
     return {"status": "healthy"}
 
-# API Info endpoints (no dependencies)
+# API Info endpoints
 @app.get("/api/models")
 async def get_models():
     """Get available models and configuration"""
@@ -95,7 +130,7 @@ async def get_models():
             "provider": "Groq",
             "model": "llama-3.1-8b-instant",
             "temperature": 0.7,
-            "max_tokens": 2048
+            "max_tokens": 500
         },
         "search": {
             "provider": "DuckDuckGo",
@@ -109,44 +144,61 @@ async def get_info():
     return {
         "name": "ARDA - Autonomous Research & Decision Agent",
         "version": "1.0.0",
-        "description": "Production-ready agentic AI with Jac/Jaseci",
-        "capabilities": [
-            "Autonomous planning and task decomposition",
-            "Multi-tool execution with retry logic",
-            "Reflection and self-correction",
-            "Semantic memory with FAISS",
-            "Research synthesis and recommendations"
-        ],
+        "description": "Lightweight research agent with Groq LLM and web search",
         "deployment": "Vercel Serverless",
+        "note": "This is the lightweight Vercel version. Full Jaseci version available locally.",
         "github": "https://github.com/siddhartha-45/arda-agent"
     }
 
-# Research endpoint (loads agent on first call)
+# Research endpoint
 @app.post("/research")
 async def research(query: ResearchQuery) -> ResearchResponse:
     """
-    Execute autonomous research on a query
+    Execute research on a query using web search and LLM analysis
     
     Args:
         query: ResearchQuery object with 'query' and optional 'depth'
         
     Returns:
-        ResearchResponse with findings and recommendations
+        ResearchResponse with search results and AI analysis
     """
+    if not query.query or len(query.query.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Query too short")
+    
     try:
-        agent = get_agent()
+        # Search the web
+        search_results = search_web(query.query, num_results=5)
         
-        # Execute research
-        result = agent.research(query.query, depth=query.depth)
+        if not search_results:
+            return ResearchResponse(
+                query=query.query,
+                status="completed",
+                search_results=[],
+                analysis="No search results found for this query."
+            )
+        
+        # Analyze results with LLM
+        analysis = analyze_search_results(query.query, search_results)
+        
+        # Convert to response model
+        results_formatted = [
+            SearchResult(
+                title=r["title"],
+                link=r["link"],
+                snippet=r["snippet"]
+            )
+            for r in search_results
+        ]
         
         return ResearchResponse(
-            session_id=result.get('session_id', 'unknown'),
-            query=result.get('query', query.query),
+            query=query.query,
             status="completed",
-            findings=result.get('findings', {}),
-            recommendations=result.get('recommendations')
+            search_results=results_formatted,
+            analysis=analysis
         )
     
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Research failed: {str(e)}")
 
