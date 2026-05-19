@@ -13,7 +13,7 @@ from mangum import Mangum
 # Import lightweight dependencies
 try:
     from groq import Groq
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 except ImportError as e:
     raise RuntimeError(f"Missing required package: {e}")
 
@@ -57,19 +57,38 @@ def get_groq_client():
     return Groq(api_key=api_key)
 
 def search_web(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
-    """Search the web using DuckDuckGo"""
-    try:
-        results = []
-        ddgs = DDGS()
-        for result in ddgs.text(query, max_results=num_results):
-            results.append({
-                "title": result.get("title", ""),
-                "link": result.get("link", ""),
-                "snippet": result.get("body", "")[:500]
-            })
-        return results
-    except Exception as e:
-        return []
+    """Search the web using DuckDuckGo with retry logic"""
+    max_retries = 3
+    
+    for attempt in range(max_retries):
+        try:
+            results = []
+            ddgs = DDGS(timeout=10)
+            
+            for result in ddgs.text(query, max_results=num_results):
+                if result and isinstance(result, dict):
+                    title = result.get("title", "").strip()
+                    link = result.get("link", "").strip()
+                    snippet = result.get("body", "").strip()[:500]
+                    
+                    if title and link:
+                        results.append({
+                            "title": title,
+                            "link": link,
+                            "snippet": snippet if snippet else "No snippet available"
+                        })
+            
+            if results:
+                return results
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                continue  # Retry
+            else:
+                # Last attempt failed, return empty list
+                return []
+    
+    return []
 
 def analyze_search_results(query: str, results: List[Dict[str, Any]]) -> str:
     """Use Groq to analyze search results"""
