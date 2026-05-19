@@ -22,7 +22,6 @@
     }
   ],
   "env": {
-    "GROQ_API_KEY": "@groq_api_key",
     "PYTHON_VERSION": "3.11"
   }
 }
