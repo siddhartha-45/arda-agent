@@ -13,7 +13,6 @@ from mangum import Mangum
 # Import lightweight dependencies
 try:
     from groq import Groq
-    from ddgs import DDGS
 except ImportError as e:
     raise RuntimeError(f"Missing required package: {e}")
 
@@ -56,73 +55,82 @@ def get_groq_client():
         raise HTTPException(status_code=503, detail="GROQ_API_KEY not configured")
     return Groq(api_key=api_key)
 
-def search_web(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
-    """Search the web using DuckDuckGo with retry logic"""
-    max_retries = 3
-    
-    for attempt in range(max_retries):
-        try:
-            results = []
-            ddgs = DDGS(timeout=10)
-            
-            for result in ddgs.text(query, max_results=num_results):
-                if result and isinstance(result, dict):
-                    title = result.get("title", "").strip()
-                    link = result.get("link", "").strip()
-                    snippet = result.get("body", "").strip()[:500]
-                    
-                    if title and link:
-                        results.append({
-                            "title": title,
-                            "link": link,
-                            "snippet": snippet if snippet else "No snippet available"
-                        })
-            
-            if results:
-                return results
-            
-        except Exception as e:
-            if attempt < max_retries - 1:
-                continue  # Retry
-            else:
-                # Last attempt failed, return empty list
-                return []
-    
-    return []
-
-def analyze_search_results(query: str, results: List[Dict[str, Any]]) -> str:
-    """Use Groq to analyze search results"""
-    if not results:
-        return "No search results found."
-    
+def research_with_groq(query: str) -> Dict[str, Any]:
+    """Use Groq LLM to research and analyze a query"""
     try:
         client = get_groq_client()
         
-        # Format search results for LLM
-        formatted_results = "\n".join([
-            f"- {r['title']}: {r['snippet']}"
-            for r in results[:3]
-        ])
-        
-        prompt = f"""Based on the following search results, provide a brief analysis (2-3 sentences) for the query: "{query}"
+        # Research prompt
+        research_prompt = f"""You are an expert research assistant. Provide comprehensive research findings for this query:
 
-Search Results:
-{formatted_results}
+Query: {query}
 
-Analysis:"""
+Please provide:
+1. Key Findings (3-5 main points)
+2. Analysis (2-3 paragraphs of detailed analysis)
+3. Recommendations (3-5 actionable recommendations)
+
+Format your response as a structured research report."""
         
         message = client.messages.create(
             model="llama-3.1-8b-instant",
-            max_tokens=500,
+            max_tokens=1500,
             messages=[
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": research_prompt}
             ]
         )
         
-        return message.content[0].text
+        research_text = message.content[0].text
+        
+        # Parse the response into sections
+        sections = {
+            "findings": [],
+            "analysis": "",
+            "recommendations": []
+        }
+        
+        lines = research_text.split('\n')
+        current_section = None
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if 'findings' in line.lower():
+                current_section = 'findings'
+            elif 'analysis' in line.lower():
+                current_section = 'analysis'
+            elif 'recommendations' in line.lower():
+                current_section = 'recommendations'
+            elif current_section and line.startswith(('-', '•', '*')):
+                clean_line = line.lstrip('-•* ').strip()
+                if current_section in ['findings', 'recommendations']:
+                    sections[current_section].append(clean_line)
+            elif current_section == 'analysis' and line:
+                sections['analysis'] += line + ' '
+        
+        # Create search result objects from findings
+        search_results = []
+        for idx, finding in enumerate(sections.get('findings', [])[:5], 1):
+            search_results.append(SearchResult(
+                title=f"Finding {idx}",
+                link="#",
+                snippet=finding[:300]
+            ))
+        
+        return {
+            "search_results": search_results,
+            "analysis": sections['analysis'].strip() if sections['analysis'] else research_text[:500],
+            "recommendations": ' '.join(sections.get('recommendations', []))
+        }
     
     except Exception as e:
-        return f"Analysis unavailable: {str(e)}"
+        return {
+            "search_results": [],
+            "analysis": f"Error during research: {str(e)}",
+            "recommendations": ""
+        }
 
 # Root endpoint - serve web UI info
 @app.get("/")
@@ -150,11 +158,7 @@ async def get_models():
             "provider": "Groq",
             "model": "llama-3.1-8b-instant",
             "temperature": 0.7,
-            "max_tokens": 500
-        },
-        "search": {
-            "provider": "DuckDuckGo",
-            "results_per_query": 5
+            "max_tokens": 1500
         }
     }
 
@@ -164,7 +168,7 @@ async def get_info():
     return {
         "name": "ARDA - Autonomous Research & Decision Agent",
         "version": "1.0.0",
-        "description": "Lightweight research agent with Groq LLM and web search",
+        "description": "Lightweight research agent powered by Groq LLM",
         "deployment": "Vercel Serverless",
         "note": "This is the lightweight Vercel version. Full Jaseci version available locally.",
         "github": "https://github.com/siddhartha-45/arda-agent"
@@ -174,47 +178,26 @@ async def get_info():
 @app.post("/research")
 async def research(query: ResearchQuery) -> ResearchResponse:
     """
-    Execute research on a query using web search and LLM analysis
+    Execute research on a query using Groq LLM
     
     Args:
         query: ResearchQuery object with 'query' and optional 'depth'
         
     Returns:
-        ResearchResponse with search results and AI analysis
+        ResearchResponse with research findings and AI analysis
     """
     if not query.query or len(query.query.strip()) < 2:
         raise HTTPException(status_code=400, detail="Query too short")
     
     try:
-        # Search the web
-        search_results = search_web(query.query, num_results=5)
-        
-        if not search_results:
-            return ResearchResponse(
-                query=query.query,
-                status="completed",
-                search_results=[],
-                analysis="No search results found for this query."
-            )
-        
-        # Analyze results with LLM
-        analysis = analyze_search_results(query.query, search_results)
-        
-        # Convert to response model
-        results_formatted = [
-            SearchResult(
-                title=r["title"],
-                link=r["link"],
-                snippet=r["snippet"]
-            )
-            for r in search_results
-        ]
+        # Research using Groq
+        research_results = research_with_groq(query.query)
         
         return ResearchResponse(
             query=query.query,
             status="completed",
-            search_results=results_formatted,
-            analysis=analysis
+            search_results=research_results.get('search_results', []),
+            analysis=research_results.get('analysis', 'No analysis available')
         )
     
     except HTTPException:
