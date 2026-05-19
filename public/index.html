@@ -348,8 +348,8 @@
             </div>
         </div>
         
-        <footer>
-            <p>🚀 Deployed on Vercel | © 2025 ARDA Research Agent</p>
+        <footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); font-size: 0.9em;">
+            <p>© 2025 ARDA Research Agent | <a href="https://github.com/siddhartha-45/arda-agent" style="color: rgba(255,255,255,0.8); text-decoration: none;">GitHub</a></p>
         </footer>
     </div>
     
@@ -420,33 +420,32 @@
         function displayResults(data) {
             let html = '<div style="margin-bottom: 20px;">';
             
-            if (data.recommendations) {
+            // Display analysis
+            if (data.analysis) {
                 html += `
                     <div class="result-item" style="border-left-color: #667eea; background: #f0f4ff;">
-                        <h3>📋 Executive Summary</h3>
-                        <p>${data.recommendations}</p>
+                        <h3>💡 Analysis</h3>
+                        <p>${data.analysis}</p>
                     </div>
                 `;
             }
             
-            if (data.findings) {
-                Object.entries(data.findings).forEach(([key, value]) => {
+            // Display search results
+            if (data.search_results && data.search_results.length > 0) {
+                html += '<div class="result-item" style="border-left-color: #764ba2;">';
+                html += '<h3>🔍 Search Results</h3>';
+                data.search_results.forEach((result, idx) => {
                     html += `
-                        <div class="result-item">
-                            <h3>${key}</h3>
-                            <p>${JSON.stringify(value).substring(0, 500)}...</p>
+                        <div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                            <h4 style="margin-bottom: 5px;">${idx + 1}. <a href="${result.link}" target="_blank" style="color: #667eea; text-decoration: none;">${result.title}</a></h4>
+                            <p style="font-size: 0.85em; color: #666; margin-bottom: 5px;">${result.link}</p>
+                            <p>${result.snippet}</p>
                         </div>
                     `;
                 });
+                html += '</div>';
             }
             
-            html += `
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
-                    <small style="color: #999;">
-                        Session ID: ${data.session_id}
-                    </small>
-                </div>
-            `;
             html += '</div>';
             
             document.getElementById('results').innerHTML = html;
