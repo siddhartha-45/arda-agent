@@ -299,9 +299,6 @@
             <div id="research" class="tab-content active">
                 <div class="search-section">
                     <h2>Start a Research Query</h2>
-                    <p style="margin-bottom: 20px; color: #666;">
-                        Ask any research question and ARDA will autonomously gather information, analyze it, and provide recommendations.
-                    </p>
                     
                     <div class="input-group">
                         <input 
@@ -339,60 +336,56 @@
             <div id="info" class="tab-content">
                 <h2>About ARDA</h2>
                 <p style="margin-bottom: 20px; color: #666;">
-                    ARDA is a production-ready autonomous research agent built with Jac/Jaseci that combines 
-                    advanced AI capabilities with practical research tools.
+                    ARDA is a lightweight AI research assistant that searches the web, analyzes sources, 
+                    and turns research questions into structured briefs.
                 </p>
                 
                 <h3 style="margin-top: 25px; margin-bottom: 15px;">Key Capabilities</h3>
                 <div class="info-grid">
                     <div class="info-box">
-                        <strong>🧠 Autonomous Planning</strong>
-                        <p style="margin-top: 8px; font-size: 0.9em;">Breaks complex queries into actionable tasks</p>
+                        <strong>Live Web Search</strong>
+                        <p style="margin-top: 8px; font-size: 0.9em;">Finds relevant source links for current topics</p>
                     </div>
                     <div class="info-box">
-                        <strong>🔧 Multi-Tool Execution</strong>
-                        <p style="margin-top: 8px; font-size: 0.9em;">Web search, LLM analysis, and smart routing</p>
+                        <strong>AI Analysis</strong>
+                        <p style="margin-top: 8px; font-size: 0.9em;">Summarizes findings with caveats and next steps</p>
                     </div>
                     <div class="info-box">
-                        <strong>🧠 Self-Correction</strong>
-                        <p style="margin-top: 8px; font-size: 0.9em;">Reflects on quality and improves results</p>
+                        <strong>Structured Output</strong>
+                        <p style="margin-top: 8px; font-size: 0.9em;">Formats results as sections, bullets, and tables</p>
                     </div>
                     <div class="info-box">
-                        <strong>💾 Memory Systems</strong>
-                        <p style="margin-top: 8px; font-size: 0.9em;">Semantic + database memory for learning</p>
+                        <strong>Graceful Fallbacks</strong>
+                        <p style="margin-top: 8px; font-size: 0.9em;">Shows search results even when analysis is unavailable</p>
                     </div>
                 </div>
                 
-                <h3 style="margin-top: 25px; margin-bottom: 15px;">5-Phase Pipeline</h3>
+                <h3 style="margin-top: 25px; margin-bottom: 15px;">Research Pipeline</h3>
                 <ol style="color: #666; line-height: 2;">
-                    <li><strong>Planning:</strong> Decompose query into tasks</li>
-                    <li><strong>Execution:</strong> Run tasks with retry logic</li>
-                    <li><strong>Reflection:</strong> Evaluate research quality</li>
-                    <li><strong>Memory:</strong> Store findings for future use</li>
-                    <li><strong>Reporting:</strong> Synthesize and recommend</li>
+                    <li><strong>Query:</strong> Receive the user's research question</li>
+                    <li><strong>Search:</strong> Retrieve relevant web results</li>
+                    <li><strong>Normalize:</strong> Convert results into titles, links, and snippets</li>
+                    <li><strong>Analyze:</strong> Generate a source-grounded brief with Groq</li>
+                    <li><strong>Report:</strong> Display analysis and source links clearly</li>
                 </ol>
                 
                 <h3 style="margin-top: 25px; margin-bottom: 15px;">Tech Stack</h3>
                 <div class="info-grid">
                     <div class="info-box">
-                        <strong>Language:</strong> Jac/Jaseci
+                        <strong>Backend:</strong> Python + FastAPI
                     </div>
                     <div class="info-box">
-                        <strong>LLM:</strong> Groq (Llama 3.1 8b)
+                        <strong>LLM:</strong> Groq + Llama 3.1 8B
                     </div>
                     <div class="info-box">
-                        <strong>Search:</strong> DuckDuckGo
+                        <strong>Search:</strong> ddgs web search
                     </div>
                     <div class="info-box">
-                        <strong>Memory:</strong> FAISS + SQLite
+                        <strong>Deploy:</strong> Vercel serverless
                     </div>
                 </div>
             </div>
         </div>
-        
-        <footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); font-size: 0.9em;">
-            <p>© 2025 ARDA Research Agent | <a href="https://github.com/siddhartha-45/arda-agent" style="color: rgba(255,255,255,0.8); text-decoration: none;">GitHub</a></p>
-        </footer>
     </div>
     
     <script>
